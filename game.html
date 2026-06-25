@@ -1,0 +1,1669 @@
+﻿<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>OverChemi</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #1a1a2e;
+    color: #eee;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 14px 10px;
+    /* 모바일 더블탭 확대 방지 */
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+h1 { font-size: 1.8rem; margin-bottom: 4px; color: #f0a500; text-shadow: 0 0 10px rgba(240,165,0,0.5); }
+
+/* ── 시작 화면 ── */
+#start-screen { text-align: center; max-width: 700px; width: 100%; }
+#stage-info {
+    background: #16213e; border: 2px solid #0f3460; border-radius: 10px;
+    padding: 10px 16px; margin: 10px auto; font-size: 0.88rem; color: #aaa;
+}
+#stage-info span { color: #f0a500; font-weight: bold; }
+.layout-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 12px auto; }
+.layout-btn {
+    background: #16213e; border: 2px solid #0f3460; color: #eee;
+    padding: 12px 8px; border-radius: 10px; cursor: pointer;
+    transition: all 0.2s; font-size: 0.78rem; position: relative;
+}
+.layout-btn:hover:not(:disabled) { border-color: #f0a500; background: #0f3460; transform: translateY(-2px); }
+.layout-btn:disabled { opacity: 0.35; cursor: not-allowed; text-decoration: line-through; }
+.layout-btn .lname { font-weight: bold; font-size: 0.88rem; color: #f0a500; display: block; margin-bottom: 3px; }
+.layout-btn .cleared-badge { position: absolute; top: 5px; right: 6px; font-size: 0.7rem; color: #2ecc71; }
+#reset-btn {
+    margin-top: 8px; background: transparent; border: 1px solid #555; color: #777;
+    padding: 5px 14px; border-radius: 6px; cursor: pointer; font-size: 0.78rem; transition: all 0.2s;
+}
+#reset-btn:hover { border-color: #f0a500; color: #f0a500; }
+
+/* ── 게임 화면 ── */
+#game-screen { display: none; flex-direction: column; align-items: center; width: 100%; }
+
+#hud {
+    display: flex; gap: 16px; background: #16213e; border: 2px solid #0f3460;
+    border-radius: 10px; padding: 8px 18px; margin-bottom: 8px;
+    align-items: center; flex-wrap: wrap; justify-content: center; width: 100%; max-width: 700px;
+}
+.hud-item { display: flex; flex-direction: column; align-items: center; }
+.hud-label { font-size: 0.6rem; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+.hud-value { font-size: 1.2rem; font-weight: bold; color: #f0a500; }
+#time-value.urgent { color: #ff4444; animation: pulse 0.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+/* ── 실험 패널 ── */
+#order-panel { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; justify-content: center; }
+.order-card {
+    background: #16213e; border: 2px solid #0f3460; border-radius: 8px;
+    padding: 5px 12px; font-size: 0.8rem; display: flex; flex-direction: column;
+    align-items: center; gap: 1px; transition: border-color 0.3s;
+}
+.order-card.completed { border-color: #2ecc71; opacity: 0.5; }
+.order-emoji { font-size: 1.3rem; }
+.order-name { font-size: 0.65rem; color: #aaa; }
+.order-pts { font-size: 0.7rem; color: #f0a500; font-weight: bold; }
+
+/* ── 레시피 패널 ── */
+#recipe-panel {
+    background: #16213e; border: 2px solid #0f3460; border-radius: 8px;
+    padding: 6px 14px; margin-bottom: 8px; font-size: 0.74rem; color: #aaa;
+    max-width: 700px; width: 100%;
+}
+#recipe-panel strong { color: #f0a500; }
+.recipe-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 3px; }
+.recipe-tag {
+    background: #0f3460; border-radius: 8px; padding: 6px 10px;
+    font-size: 0.72rem; display: flex; align-items: center; gap: 4px; flex-wrap: wrap;
+}
+.recipe-tag .ri-img {
+    width: 22px; height: 22px; object-fit: contain; vertical-align: middle; flex-shrink: 0;
+}
+.recipe-tag .ri-emoji {
+    font-size: 1.1rem; line-height: 1; flex-shrink: 0;
+}
+.recipe-tag .ri-name { color: #ccc; font-size: 0.7rem; }
+.recipe-tag .ri-arrow { color: #f0a500; font-weight: bold; margin: 0 2px; }
+.recipe-tag .ri-station { color: #4a90d9; font-size: 0.7rem; }
+.recipe-tag .ri-pts { color: #f0a500; font-weight: bold; font-size: 0.7rem; margin-left: 4px; }
+
+#game-canvas-container {
+    border: 3px solid #0f3460; border-radius: 10px; overflow: hidden;
+    box-shadow: 0 0 30px rgba(15,52,96,0.8);
+    max-width: 100%;
+    /* 캔버스 가로 스크롤 허용 */
+    overflow-x: auto;
+}
+#game-canvas { display: block; max-width: 100%; }
+
+/* ── 키보드 컨트롤 힌트 (데스크탑만) ── */
+#controls-info {
+    margin-top: 10px; background: #16213e; border-radius: 8px; padding: 7px 16px;
+    font-size: 0.78rem; color: #888; display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+}
+.key { background:#0f3460; border:1px solid #4a90d9; border-radius:4px; padding:1px 6px; font-family:monospace; font-size:0.74rem; color:#4a90d9; }
+@media (max-width: 600px) { #controls-info { display: none; } }
+
+#back-btn {
+    margin-top: 10px; background: #0f3460; border: 2px solid #4a90d9; color: #eee;
+    padding: 7px 18px; border-radius: 8px; cursor: pointer; font-size: 0.85rem; transition: all 0.2s;
+}
+#back-btn:hover { background: #4a90d9; }
+
+/* ═══════════════════════════════════════
+   터치 조이스틱 레이아웃
+═══════════════════════════════════════ */
+#touch-controls {
+    display: none;   /* JS에서 터치 환경이면 보여줌 */
+    width: 100%;
+    max-width: 700px;
+    margin-top: 12px;
+    /* 좌: 상호작용 버튼들 / 우: 조이스틱 */
+    justify-content: space-between;
+    align-items: flex-end;
+    gap: 10px;
+    padding: 0 10px;
+}
+
+/* 왼쪽: 액션 버튼 영역 */
+#action-area {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.action-btn {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    border: 3px solid;
+    font-size: 1.6rem;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.1s, opacity 0.1s;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    font-weight: bold;
+}
+.action-btn:active { transform: scale(0.88); opacity: 0.7; }
+
+#btn-interact {
+    background: rgba(240,165,0,0.25);
+    border-color: #f0a500;
+    color: #f0a500;
+    width: 80px; height: 80px; font-size: 1.8rem;
+}
+/* btn-trash 삭제됨 */
+
+/* 오른쪽: 조이스틱 */
+#joystick-area {
+    position: relative;
+    width: 140px; height: 140px;
+    flex-shrink: 0;
+}
+
+#joystick-base {
+    position: absolute; inset: 0;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.06);
+    border: 2px solid rgba(255,255,255,0.18);
+}
+
+/* 십자형 방향 가이드 */
+#joystick-base::before,
+#joystick-base::after {
+    content: '';
+    position: absolute;
+    background: rgba(255,255,255,0.08);
+}
+#joystick-base::before {
+    width: 2px; height: 100%; left: 50%; top: 0; transform: translateX(-50%);
+}
+#joystick-base::after {
+    height: 2px; width: 100%; top: 50%; left: 0; transform: translateY(-50%);
+}
+
+#joystick-stick {
+    position: absolute;
+    width: 56px; height: 56px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #5a90e0, #1a4a90);
+    border: 2px solid rgba(100,160,255,0.5);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    transition: none;
+    pointer-events: none;
+}
+
+/* 방향 화살표 힌트 */
+.dpad-hint {
+    position: absolute;
+    font-size: 0.9rem;
+    color: rgba(255,255,255,0.25);
+    pointer-events: none;
+}
+.dpad-hint.up    { top: 4px;  left: 50%; transform: translateX(-50%); }
+.dpad-hint.down  { bottom: 4px; left: 50%; transform: translateX(-50%); }
+.dpad-hint.left  { left: 4px;  top: 50%; transform: translateY(-50%); }
+.dpad-hint.right { right: 4px; top: 50%; transform: translateY(-50%); }
+
+/* ── 게임 오버 ── */
+#game-over-overlay {
+    display: none; position: fixed; top:0; left:0; right:0; bottom:0;
+    background: rgba(0,0,0,0.82); z-index: 100;
+    justify-content: center; align-items: center;
+}
+#game-over-overlay.show { display: flex; }
+#game-over-box {
+    background: #16213e; border: 3px solid #f0a500; border-radius: 16px;
+    padding: 30px 44px; text-align: center; box-shadow: 0 0 40px rgba(240,165,0,0.4); min-width: 280px;
+}
+#game-over-box h2 { font-size: 1.6rem; color: #f0a500; margin-bottom: 6px; }
+#final-score { font-size: 2.5rem; font-weight: bold; color: #fff; margin: 10px 0; }
+#cleared-stages-msg { font-size: 0.88rem; color: #2ecc71; margin-bottom: 4px; }
+.go-btns { display: flex; gap: 10px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
+.go-btn { padding: 9px 18px; border-radius: 8px; cursor: pointer; font-size: 0.9rem; border: none; transition: all 0.2s; }
+.btn-next { background: #f0a500; color: #1a1a2e; font-weight: bold; }
+.btn-next:hover { background: #ffb81c; }
+.btn-replay { background: #0f3460; color: #eee; border: 2px solid #4a90d9; }
+.btn-replay:hover { background: #4a90d9; }
+.btn-menu { background: #222; color: #aaa; border: 2px solid #444; }
+.btn-menu:hover { background: #444; color: #eee; }
+
+/* ── 캔버스 + 미션 레이아웃 ── */
+#game-area-row {
+    position: relative;   /* 미션 패널의 absolute 기준 */
+    display: inline-block; /* 캔버스 크기에만 맞게 */
+}
+
+/* ── 미션 패널 (캔버스 우측에 absolute 고정) ── */
+#mission-panel {
+    display: none;
+    width: 110px;
+    position: absolute;   /* 캔버스를 전혀 밀지 않음 */
+    top: 0;
+    left: calc(100% + 10px);  /* 캔버스 오른쪽 10px 떨어진 곳 */
+    background: linear-gradient(160deg, #2d1b00, #1a0a00);
+    border: 2px solid #f0a500;
+    border-radius: 10px;
+    padding: 8px 8px;
+    overflow: hidden;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    animation: mission-appear 0.35s cubic-bezier(0.34,1.56,0.64,1);
+    z-index: 10;
+}
+@keyframes mission-appear {
+    from { transform: scale(0.8) translateX(8px); opacity: 0; }
+    to   { transform: scale(1)   translateX(0);   opacity: 1; }
+}
+#mission-panel.active { display: flex; }
+#mission-panel.expiring { border-color: #ff4444; animation: blink-border 0.4s infinite; }
+@keyframes blink-border { 0%,100%{border-color:#ff4444} 50%{border-color:#ff8800} }
+
+#mission-panel::before {
+    content: '';
+    position: absolute; top: -50%; left: -50%;
+    width: 200%; height: 200%;
+    background: radial-gradient(ellipse at center, rgba(240,165,0,0.1) 0%, transparent 70%);
+    pointer-events: none;
+}
+
+.mission-badge {
+    font-size: 0.52rem; font-weight: bold; letter-spacing: 0.8px;
+    color: #1a1a2e; background: #f0a500;
+    padding: 1px 6px; border-radius: 8px; text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.mission-icon { font-size: 1.6rem; line-height: 1; }
+
+.mission-body { width: 100%; text-align: center; }
+.mission-text {
+    font-size: 0.68rem; color: #fff; font-weight: bold;
+    line-height: 1.25; margin-bottom: 2px;
+}
+.mission-reward {
+    font-size: 0.62rem; color: #f0a500; font-weight: bold;
+}
+
+/* 미션 타이머 원형 (소형) */
+.mission-timer-wrap {
+    flex-shrink: 0;
+    position: relative; width: 44px; height: 44px;
+}
+.mission-timer-wrap svg { transform: rotate(-90deg); }
+.mission-timer-bg  { fill: none; stroke: rgba(255,255,255,0.1); stroke-width: 4; }
+.mission-timer-arc {
+    fill: none; stroke: #f0a500; stroke-width: 4;
+    stroke-linecap: round; transition: stroke-dashoffset 1s linear;
+}
+.mission-timer-arc.urgent { stroke: #ff4444; }
+#mission-countdown {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    font-size: 0.85rem; font-weight: bold; color: #fff;
+}
+
+/* 모바일: 캔버스 아래로 배치 */
+@media (max-width: 600px) {
+    #mission-panel {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        width: 100%;
+        flex-direction: row !important;
+        padding: 8px 12px; gap: 10px;
+    }
+    #mission-panel .mission-body { text-align: left; flex: 1; }
+    #mission-panel .mission-badge { align-self: flex-start; }
+}
+
+/* ── 일시정지 오버레이 ── */
+#pause-overlay {
+    display: none;
+    position: absolute; inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 50;
+    justify-content: center; align-items: center;
+    border-radius: 8px;
+    flex-direction: column; gap: 6px;
+}
+#pause-overlay.show { display: flex; }
+#pause-overlay .pause-icon { font-size: 2.4rem; }
+#pause-overlay .pause-text {
+    font-size: 1rem; font-weight: bold; color: #fff;
+    letter-spacing: 2px; text-transform: uppercase;
+}
+#pause-overlay .pause-sub {
+    font-size: 0.72rem; color: #aaa;
+}
+#game-canvas-container { position: relative; }
+
+/* 미션 성공/실패 플래시 */
+#mission-flash {
+    position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none; z-index: 300;
+    opacity: 0; transition: opacity 0.15s;
+}
+#mission-flash.success { background: rgba(46,204,113,0.25); }
+#mission-flash.fail    { background: rgba(231,76,60,0.25); }
+#mission-flash.show    { opacity: 1; }
+
+/* ── 토스트 ── */
+#toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    background: #f0a500; color: #1a1a2e; padding: 9px 22px; border-radius: 20px;
+    font-weight: bold; font-size: 0.95rem; opacity: 0; transition: opacity 0.3s;
+    pointer-events: none; z-index: 200; white-space: nowrap;
+}
+#toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<h1>OverChemi!</h1>
+<p style="color:#888; font-size:0.82rem; margin-bottom:12px;">혼자 하는 분자 게임 — 모든 스테이지 클리어에 도전!</p>
+
+<!-- ── 시작 화면 ── -->
+<div id="start-screen">
+    <div id="stage-info">
+        진행: <span id="cleared-count">0</span> / <span id="total-count">6</span> 스테이지 클리어
+        &nbsp;|&nbsp; 누적 점수: <span id="total-score">0</span>점
+    </div>
+    <div class="layout-grid" id="layout-grid"></div>
+    <button id="reset-btn" onclick="resetProgress()">↺ 진행상황 초기화</button>
+    <div style="margin-top:12px; color:#555; font-size:0.75rem;">클리어한 스테이지는 다시 선택할 수 없어요</div>
+</div>
+
+<!-- ── 게임 화면 ── -->
+<div id="game-screen">
+    <div id="hud">
+        <div class="hud-item">
+            <span class="hud-label">점수</span>
+            <span class="hud-value" id="score-value">0</span>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">남은 시간</span>
+            <span class="hud-value" id="time-value">60</span>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">스테이지</span>
+            <span class="hud-value" style="font-size:0.85rem;color:#4a90d9" id="layout-display">-</span>
+        </div>
+        <div class="hud-item">
+            <span class="hud-label">들고있는 것</span>
+            <span class="hud-value" style="font-size:1.4rem" id="holding-display">—</span>
+        </div>
+    </div>
+
+    <div id="order-panel"></div>
+
+    <div id="recipe-panel">
+        <strong>📖 레시피</strong>
+        <div class="recipe-row" id="recipe-hints"></div>
+    </div>
+
+    <!-- ── 캔버스 + 미션 가로 배치 ── -->
+    <div id="game-area-row">
+
+        <div id="game-canvas-container">
+            <canvas id="game-canvas"></canvas>
+            <div id="pause-overlay">
+                <div class="pause-icon">⏸</div>
+                <div class="pause-text">일시정지</div>
+                <div class="pause-sub">창을 다시 클릭하면 재개됩니다</div>
+            </div>
+        </div>
+
+        <!-- 미션 패널 (캔버스 우측) -->
+        <div id="mission-panel">
+            <div class="mission-badge">⚡ 미션</div>
+            <div class="mission-icon" id="mission-icon">⭐</div>
+            <div class="mission-body">
+                <div class="mission-text" id="mission-text">양파 수프를 제출하세요!</div>
+                <div class="mission-reward" id="mission-reward">성공 시 ×2 점수</div>
+            </div>
+            <div class="mission-timer-wrap">
+                <svg width="44" height="44" viewBox="0 0 44 44">
+                    <circle class="mission-timer-bg" cx="22" cy="22" r="18"/>
+                    <circle class="mission-timer-arc" id="mission-arc" cx="22" cy="22" r="18"
+                        stroke-dasharray="113.1" stroke-dashoffset="0"/>
+                </svg>
+                <div id="mission-countdown">20</div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 데스크탑 키보드 힌트 -->
+    <div id="controls-info">
+        <span><span class="key">←↑↓→</span> 이동</span>
+        <span><span class="key">Space</span> 상호작용</span>
+    </div>
+
+    <!-- ── 터치 컨트롤 (모바일/태블릿) ── -->
+    <div id="touch-controls">
+
+        <!-- 왼쪽: 액션 버튼 -->
+        <div id="action-area">
+            <button class="action-btn" id="btn-interact" ontouchstart="touchInteract(event)" onmousedown="touchInteract(event)">
+                ⚡
+            </button>
+            <!-- 버리기 기능 삭제됨 -->
+        </div>
+
+        <!-- 오른쪽: 조이스틱 -->
+        <div id="joystick-area">
+            <div id="joystick-base">
+                <span class="dpad-hint up">▲</span>
+                <span class="dpad-hint down">▼</span>
+                <span class="dpad-hint left">◀</span>
+                <span class="dpad-hint right">▶</span>
+            </div>
+            <div id="joystick-stick"></div>
+        </div>
+
+    </div>
+
+    <button id="back-btn" onclick="goToMenu()">← 메뉴로</button>
+</div>
+
+<!-- ── 게임 오버 ── -->
+<div id="game-over-overlay">
+    <div id="game-over-box">
+        <h2 id="go-title">⏱ 시간 종료!</h2>
+        <div style="color:#aaa; font-size:0.88rem;">이번 스테이지 점수</div>
+        <div id="final-score">0 점</div>
+        <div id="cleared-stages-msg"></div>
+        <div class="go-btns">
+            <button class="go-btn btn-next" id="btn-next" onclick="nextStage()">▶ 다음 스테이지</button>
+            <button class="go-btn btn-replay" onclick="replayStage()">🔄 다시하기</button>
+            <button class="go-btn btn-menu" onclick="goToMenu()">🏠 메뉴</button>
+        </div>
+    </div>
+</div>
+
+<div id="mission-flash"></div>
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  데이터 정의
+// ═══════════════════════════════════════════════════════
+
+const STAGES = [
+    {
+        id: 'simple', name: '🥣 Simple', desc: '기초 연습', time: 90,
+        grid: ["XZPXX","O  DX","X1 TX","XXSXX"],
+        orders: ['onion_soup','onion_soup','onion_soup','onion_soup']
+    },
+    {
+        id: 'cramped_room', name: '🍲 Mushroom', desc: '버섯 스프', time: 90,
+        grid: ["XXPXX","O  DX","X1  Z","XMSXX"],
+        orders: ['mushroom_soup','mushroom_soup','onion_soup','onion_soup']
+    },
+    {
+        id: 'mushroom_map', name: '🍳 Pan', desc: '프라이팬 도전', time: 100,
+        grid: ["XXPFXX","O   DX","B 1  Z","X    X","XXTXSX"],
+        orders: ['onion_soup','onion_soup','onion_soup','sandwich_item']
+    },
+    {
+        id: 'sandwich_map', name: '🔀 Combo', desc: '조합 도전', time: 110,
+        grid: ["XXPFXX","O   DX","B 1  Z","X    X","XXTXSX"],
+        orders: ['onion_soup','onion_soup','mushroom_soup','sandwich_item']
+    },
+    {
+        id: 'coordination_ring', name: '💍 Ring', desc: '링 모양 주방', time: 90,
+        grid: ["XXXPX","O   P","Z1X X","M   X","XODSX"],
+        orders: ['onion_soup','mushroom_soup','onion_soup','mushroom_soup','onion_soup']
+    },
+    {
+        id: 'hard_kitchen', name: '🔥 Hard', desc: '최종 도전', time: 130,
+        grid: ["XZPFBX","O      ","M  1  D","T     X","XXTXSXX"],
+        orders: ['onion_soup','onion_soup','mushroom_soup','onion_soup','mushroom_soup']
+    }
+];
+
+// ── 레시피 정의 ──
+// results: 완성 시 나오는 결과물 배열 (여러 개면 접시로 하나씩 꺼냄)
+// cookTime:0 & station:'counter'는 즉시 조합
+const RECIPES = [
+    {
+        id:'onion_soup', name:'물', emoji:'물',
+        station:'pot',
+        ingredients:['onion','onion','tomato'],   // 수소2 + 산소1
+        cookTime:3, points:5,
+        results:['onion_soup','onion_soup']        // 결과 2개
+    },
+    {
+        id:'mushroom_soup', name:'암모니아', emoji:'암모니아',
+        station:'pot',
+        ingredients:['onion','onion','onion','mushroom'],  // 수소3 + 질소1
+        cookTime:4, points:7,
+        results:['mushroom_soup','mushroom_soup']   // 결과 2개
+    },
+    {
+        id:'pan_combo', name:'이산화탄소+물', emoji:'이산화탄소+물',
+        station:'pan',
+        ingredients:['bread','tomato','tomato'],   // 메테인1 + 산소2
+        cookTime:8, points:12,
+        results:['sandwich_item','onion_soup','onion_soup']     // 결과: 이산화탄소1 + 물2
+    },
+    // 제출 가능한 단품 정의 (results에서 나오는 개별 아이템)
+    {
+        id:'sandwich_item', name:'이산화탄소', emoji:'이산화탄소',
+        station:null, ingredients:[], cookTime:0, points:10,
+        results:['sandwich_item']
+    },
+];
+
+const INGREDIENT_SOURCES = { 'O':'onion','T':'tomato','M':'mushroom','B':'bread' };
+const INGREDIENT_EMOJI   = { onion:'수소', tomato:'산소', mushroom:'질소', bread:'메테인', dish:'실험기구' };
+const INGREDIENT_NAMES   = { onion:'수소', tomato:'산소', mushroom:'질소', bread:'메테인', dish:'실험기구' };
+
+// ── 아이템 이미지 경로 정의 ──
+// 파일이 존재하면 이모지 대신 이미지를 사용합니다.
+// static/images/items/ 폴더에 아래 파일명으로 PNG를 넣으세요.
+const ITEM_IMAGE_PATHS = {
+    // ── 재료 ──
+    onion:         'static/images/items/수소.png',
+    tomato:        'static/images/items/산소.png',
+    mushroom:      'static/images/items/질소.png',
+    bread:         'static/images/items/메테인.png',
+    dish:          'static/images/items/실험기구.png',
+    // ── 완성품 ──
+    onion_soup:    'static/images/items/물.png',
+    mushroom_soup: 'static/images/items/암모니아.png',
+    sandwich_item: 'static/images/items/이산화탄소.png',
+    // pan_combo 복합 세트 아이콘 삭제됨
+    // ── 조리 스테이션 ──
+    pot:           'static/images/items/실험테이블.png',
+    pan:           'static/images/items/핫플레이트.png',
+};
+
+// ── 오브젝트(타일) 이미지 경로 ──
+// static/images/objects/ 폴더에 아래 파일명으로 PNG를 넣으면 자동 교체
+const OBJECT_IMAGE_PATHS = {
+    wall:     'static/images/objects/벽.png',       // X 타일 (벽)
+    floor:    'static/images/objects/바닥.png',      // ' ' 타일 (이동 가능 바닥)
+    trash:    'static/images/objects/쓰레기통.png',  // Z 타일
+    serving:  'static/images/objects/제출.png',      // S 타일
+    counter:  'static/images/objects/카운터.png',    // X 타일 (상호작용 벽 — wall과 같은 파일 써도 됨)
+};
+
+// ── 캐릭터 이미지 경로 ──
+// 빈손: 아무것도 안 들고 있을 때
+// 들고있을때: 아이템을 들고 있을 때
+const CHAR_IMAGE_PATHS = {
+    up:             'static/images/character/캐릭터_위.png',
+    down:           'static/images/character/캐릭터_아래.png',
+    left:           'static/images/character/캐릭터_왼쪽.png',
+    right:          'static/images/character/캐릭터_오른쪽.png',
+    holding_up:     'static/images/character/캐릭터_들고_위.png',
+    holding_down:   'static/images/character/캐릭터_들고_아래.png',
+    holding_left:   'static/images/character/캐릭터_들고_왼쪽.png',
+    holding_right:  'static/images/character/캐릭터_들고_오른쪽.png',
+};
+
+// 이미지 캐시: key → HTMLImageElement (로드 완료) or null (파일 없음)
+const IMG_CACHE = {};
+
+function _cacheImage(key, src) {
+    const img = new Image();
+    img.onload  = () => { IMG_CACHE[key] = img; };
+    img.onerror = () => { IMG_CACHE[key] = null; };  // 없으면 기존 그래픽 fallback
+    img.src = src;
+}
+
+function loadItemImages() {
+    // 아이템
+    for (const [key, src] of Object.entries(ITEM_IMAGE_PATHS))   _cacheImage(key, src);
+    // 오브젝트
+    for (const [key, src] of Object.entries(OBJECT_IMAGE_PATHS)) _cacheImage('obj_'+key, src);
+    // 캐릭터
+    for (const [key, src] of Object.entries(CHAR_IMAGE_PATHS))   _cacheImage('char_'+key, src);
+}
+loadItemImages();
+
+// 이미지 or 이모지를 캔버스에 그리는 헬퍼
+// cx, cy: 중심 좌표 / size: 정사각형 크기
+function drawItemIcon(ctx, key, cx, cy, size) {
+    const img = IMG_CACHE[key];
+    if (img) {
+        ctx.drawImage(img, cx - size/2, cy - size/2, size, size);
+    } else {
+        // 이미지 없을 때 이모지 fallback
+        ctx.font = `${size * 0.72}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(INGREDIENT_EMOJI[key] || getItemInfo(key).emoji || '?', cx, cy);
+    }
+}
+const TILE_COLORS = {
+    'X':'#4a4a5a','O':'#c0680a','T':'#c0392b','M':'#7d5a3c',
+    'B':'#c8a044','D':'#2471a3','P':'#6c3483',
+    'F':'#117a65','S':'#1e8449','Z':'#2c2c2c',' ':'#e8dcc8'
+};
+
+// 제출 가능한 최종 아이템 ID 목록 (RECIPES.results 에서 나오는 것들)
+const SERVABLE_IDS = new Set(['onion_soup','mushroom_soup','sandwich_item']);
+
+// ═══════════════════════════════════════════════════════
+//  진행상황 저장
+// ═══════════════════════════════════════════════════════
+function loadProgress() {
+    try { return JSON.parse(localStorage.getItem('oc_progress') || '{"cleared":[],"totalScore":0}'); }
+    catch(e) { return {cleared:[],totalScore:0}; }
+}
+function saveProgress(p) { localStorage.setItem('oc_progress', JSON.stringify(p)); }
+function resetProgress() {
+    if (!confirm('진행상황을 초기화할까요?')) return;
+    localStorage.removeItem('oc_progress');
+    buildStartScreen();
+}
+
+// ═══════════════════════════════════════════════════════
+//  시작 화면
+// ═══════════════════════════════════════════════════════
+function buildStartScreen() {
+    const prog = loadProgress();
+    document.getElementById('cleared-count').textContent = prog.cleared.length;
+    document.getElementById('total-count').textContent   = STAGES.length;
+    document.getElementById('total-score').textContent   = prog.totalScore || 0;
+    const grid = document.getElementById('layout-grid');
+    grid.innerHTML = '';
+    for (const stage of STAGES) {
+        const done = prog.cleared.includes(stage.id);
+        const btn = document.createElement('button');
+        btn.className = 'layout-btn';
+        btn.disabled = done;
+        btn.innerHTML = `
+            ${done ? '<span class="cleared-badge">✅ 클리어</span>' : ''}
+            <span class="lname">${stage.name}</span>
+            ${stage.desc}<br>
+            <small style="color:#888">⏱ ${stage.time}초 | 실험 ${stage.orders.length}개</small>`;
+        if (!done) btn.onclick = () => startGame(stage.id);
+        grid.appendChild(btn);
+    }
+}
+buildStartScreen();
+
+// ═══════════════════════════════════════════════════════
+//  게임 상태
+// ═══════════════════════════════════════════════════════
+let G = {};
+
+// ═══════════════════════════════════════════════════════
+//  게임 시작
+// ═══════════════════════════════════════════════════════
+function startGame(stageId) {
+    const stage = STAGES.find(s => s.id === stageId);
+    if (!stage) return;
+    stopGame();
+
+    document.getElementById('start-screen').style.display  = 'none';
+    document.getElementById('game-screen').style.display   = 'flex';
+    document.getElementById('game-over-overlay').classList.remove('show');
+    document.getElementById('layout-display').textContent  = stage.name;
+    document.getElementById('time-value').classList.remove('urgent');
+
+    const gridRows = stage.grid;
+    const ROWS = gridRows.length;
+    const COLS = Math.max(...gridRows.map(r => r.length));
+    const terrain = gridRows.map(row => row.padEnd(COLS,' ').split(''));
+
+    let startPos = {x:1,y:1};
+    for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+        if (terrain[r][c]==='1') { startPos={x:c,y:r}; terrain[r][c]=' '; }
+    }
+
+    const cookingStations = [];
+    for (let r=0;r<ROWS;r++) for (let c=0;c<COLS;c++) {
+        const t = terrain[r][c];
+        if (t==='P'||t==='F') cookingStations.push({
+            x:c, y:r, type:t==='P'?'pot':'pan',
+            contents:[], cooking:false, cookTime:0,
+            done:false, outputQueue:[]  // 완성 결과물 큐
+        });
+    }
+
+    G = {
+        stage, terrain, ROWS, COLS, TILE: 68,
+        player: { pos:{...startPos}, dir:{x:0,y:1}, holding:null },
+        cookingStations,
+        counterItems: {},
+        orders: stage.orders.map((id,i) => ({id,index:i,done:false})),
+        score:0, timeLeft:stage.time, startTime:Date.now(),
+        _lastTick: Date.now(),   // 시간 감소용 마지막 tick
+        gameOver:false, paused:false, _pausedElapsed:0,
+        keys:{}, lastMove:0, MOVE_DELAY:130,
+        rafId:null, lastPotUpdate:Date.now(),
+        // 조이스틱
+        joystick: { active:false, id:null, baseX:0, baseY:0, dx:0, dy:0 },
+        // 미션
+        mission: null   // { recipeId, timeLeft, totalTime, active }
+    };
+
+    buildRecipeHints(stage);
+    buildOrderPanel();
+    hideMissionPanel();
+    scheduleMission();   // 첫 미션 예약
+
+    const canvas = document.getElementById('game-canvas');
+    canvas.width  = G.COLS * G.TILE;
+    canvas.height = G.ROWS * G.TILE;
+
+    document.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keyup',   onKeyUp);
+    initJoystick();
+
+    G.rafId = requestAnimationFrame(gameLoop);
+}
+
+function stopGame() {
+    if (G.rafId) { cancelAnimationFrame(G.rafId); G.rafId = null; }
+    document.removeEventListener('keydown', onKeyDown);
+    document.removeEventListener('keyup',   onKeyUp);
+    destroyJoystick();
+    clearMissionTimers();
+    G.gameOver = true;
+}
+
+// ═══════════════════════════════════════════════════════
+//  터치 조이스틱
+// ═══════════════════════════════════════════════════════
+const DEADZONE  = 12;  // px — 이 이하는 STAY
+const MAX_DIST  = 52;  // 조이스틱 최대 이동 반경
+
+function isTouchDevice() {
+    return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+}
+
+function initJoystick() {
+    // 터치 기기이거나 화면 너비 800 이하면 조이스틱 표시
+    if (isTouchDevice() || window.innerWidth <= 800) {
+        document.getElementById('touch-controls').style.display = 'flex';
+    }
+    const base = document.getElementById('joystick-base');
+    base.addEventListener('touchstart',  joystickStart, {passive:false});
+    base.addEventListener('touchmove',   joystickMove,  {passive:false});
+    base.addEventListener('touchend',    joystickEnd,   {passive:false});
+    base.addEventListener('touchcancel', joystickEnd,   {passive:false});
+    // 마우스 지원 (데스크탑 테스트용)
+    base.addEventListener('mousedown',   joystickMouseStart);
+    window.addEventListener('mousemove', joystickMouseMove);
+    window.addEventListener('mouseup',   joystickMouseEnd);
+}
+
+function destroyJoystick() {
+    const base = document.getElementById('joystick-base');
+    if (!base) return;
+    base.removeEventListener('touchstart',  joystickStart);
+    base.removeEventListener('touchmove',   joystickMove);
+    base.removeEventListener('touchend',    joystickEnd);
+    base.removeEventListener('touchcancel', joystickEnd);
+    base.removeEventListener('mousedown',   joystickMouseStart);
+    window.removeEventListener('mousemove', joystickMouseMove);
+    window.removeEventListener('mouseup',   joystickMouseEnd);
+}
+
+function getBaseCenter() {
+    const base = document.getElementById('joystick-base');
+    const rect = base.getBoundingClientRect();
+    return { x: rect.left + rect.width/2, y: rect.top + rect.height/2 };
+}
+
+function updateStick(clientX, clientY) {
+    const center = getBaseCenter();
+    let dx = clientX - center.x;
+    let dy = clientY - center.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    const clamped = Math.min(dist, MAX_DIST);
+    const angle = Math.atan2(dy, dx);
+    const sx = Math.cos(angle) * clamped;
+    const sy = Math.sin(angle) * clamped;
+
+    const stick = document.getElementById('joystick-stick');
+    const base  = document.getElementById('joystick-base');
+    const half  = base.offsetWidth / 2;
+    stick.style.left = (half + sx) + 'px';
+    stick.style.top  = (half + sy) + 'px';
+    stick.style.transform = 'translate(-50%,-50%)';
+
+    // 방향 결정 (데드존 안이면 STAY)
+    if (dist < DEADZONE) {
+        G.joystick.dx = 0; G.joystick.dy = 0;
+    } else {
+        // 8방향 → 4방향으로 스냅
+        const adx = Math.abs(dx), ady = Math.abs(dy);
+        G.joystick.dx = adx >= ady ? Math.sign(dx) : 0;
+        G.joystick.dy = adx <  ady ? Math.sign(dy) : 0;
+    }
+}
+
+function resetStick() {
+    const stick = document.getElementById('joystick-stick');
+    stick.style.left = '50%';
+    stick.style.top  = '50%';
+    stick.style.transform = 'translate(-50%,-50%)';
+    G.joystick.dx = 0;
+    G.joystick.dy = 0;
+    G.joystick.active = false;
+}
+
+// Touch handlers
+function joystickStart(e) {
+    e.preventDefault();
+    const t = e.changedTouches[0];
+    G.joystick.active = true;
+    G.joystick.id = t.identifier;
+    updateStick(t.clientX, t.clientY);
+}
+function joystickMove(e) {
+    e.preventDefault();
+    for (const t of e.changedTouches) {
+        if (t.identifier === G.joystick.id) {
+            updateStick(t.clientX, t.clientY);
+        }
+    }
+}
+function joystickEnd(e) {
+    e.preventDefault();
+    resetStick();
+}
+
+// Mouse handlers (테스트용)
+let _mouseJoy = false;
+function joystickMouseStart(e) {
+    _mouseJoy = true; G.joystick.active = true;
+    updateStick(e.clientX, e.clientY);
+}
+function joystickMouseMove(e) {
+    if (!_mouseJoy) return;
+    updateStick(e.clientX, e.clientY);
+}
+function joystickMouseEnd() {
+    if (!_mouseJoy) return;
+    _mouseJoy = false; resetStick();
+}
+
+// 터치 액션 버튼
+function touchInteract(e) {
+    e.preventDefault();
+    if (!G.gameOver) interact();
+}
+
+// ═══════════════════════════════════════════════════════
+//  미션 시스템
+// ═══════════════════════════════════════════════════════
+
+// 미션 설정
+const MISSION_CONFIG = {
+    firstDelay:  15,   // 게임 시작 후 첫 미션까지 대기 (초)
+    interval:    25,   // 미션 간격 (초) — 미션 종료 후 다음 미션까지
+    duration:    20,   // 미션 제한 시간 (초)
+    multiplier:   2,   // 성공 시 점수 배율
+};
+
+let _missionScheduleTimer = null;
+let _missionTickTimer     = null;
+
+function clearMissionTimers() {
+    if (_missionScheduleTimer) { clearTimeout(_missionScheduleTimer); _missionScheduleTimer = null; }
+    if (_missionTickTimer)     { clearInterval(_missionTickTimer);    _missionTickTimer     = null; }
+}
+
+// 다음 미션 예약
+function scheduleMission() {
+    clearMissionTimers();
+    if (G.gameOver) return;
+    // 남은 시간이 미션 duration + 5초 이상일 때만 시작
+    const delay = G.mission ? MISSION_CONFIG.interval : MISSION_CONFIG.firstDelay;
+    _missionScheduleTimer = setTimeout(() => {
+        if (G.gameOver) return;
+        if (G.timeLeft < MISSION_CONFIG.duration + 5) return;  // 시간 부족하면 생략
+        startMission();
+    }, delay * 1000);
+}
+
+// 미션 시작
+function startMission() {
+    // 현재 stage의 실험 목록 중 완료 안 된 레시피에서 랜덤 선택
+    const pending = G.orders.filter(o => !o.done).map(o => o.id);
+    // 레시피 풀: pending 우선, 없으면 stage 전체 실험
+    const pool = pending.length > 0 ? pending : G.stage.orders;
+    // pan_combo는 미션으로 출제되지 않도록 제외
+    const missionPool = pool.filter(id => id !== 'pan_combo');
+    const recipeId = missionPool.length > 0 ? missionPool[Math.floor(Math.random() * missionPool.length)] : null;
+    const recipe   = RECIPES.find(r => r.id === recipeId);
+    if (!recipe) { scheduleMission(); return; }
+
+    G.mission = {
+        recipeId,
+        timeLeft:  MISSION_CONFIG.duration,
+        totalTime: MISSION_CONFIG.duration,
+        active:    true
+    };
+
+    // 패널 업데이트
+    const panel = document.getElementById('mission-panel');
+    panel.className = 'active';
+    document.getElementById('mission-icon').textContent    = recipe.emoji;
+    document.getElementById('mission-text').textContent    =
+        `${recipe.name}을(를) 제출하세요!`;
+    document.getElementById('mission-reward').textContent  =
+        `✅ 성공 시 ${MISSION_CONFIG.multiplier}배 점수 (+${recipe.points * MISSION_CONFIG.multiplier}pt)`;
+
+    updateMissionTimer();
+
+    // 1초 tick
+    _missionTickTimer = setInterval(() => {
+        if (!G.mission || !G.mission.active || G.gameOver) {
+            clearInterval(_missionTickTimer); return;
+        }
+        G.mission.timeLeft--;
+        updateMissionTimer();
+
+        if (G.mission.timeLeft <= 0) {
+            missionFail();
+        }
+    }, 1000);
+}
+
+// 타이머 UI 업데이트
+function updateMissionTimer() {
+    if (!G.mission) return;
+    const t   = G.mission.timeLeft;
+    const tot = G.mission.totalTime;
+    const pct = t / tot;                          // 1.0 → 0.0
+    const circ = 2 * Math.PI * 18;               // r=18
+    const offset = circ * (1 - pct);
+
+    const arc = document.getElementById('mission-arc');
+    const countdown = document.getElementById('mission-countdown');
+    if (!arc || !countdown) return;
+
+    arc.style.strokeDashoffset = offset;
+    countdown.textContent = t;
+
+    const panel = document.getElementById('mission-panel');
+    if (t <= 5) {
+        arc.classList.add('urgent');
+        panel.classList.add('expiring');
+        countdown.style.color = '#ff4444';
+    } else {
+        arc.classList.remove('urgent');
+        panel.classList.remove('expiring');
+        countdown.style.color = '#fff';
+    }
+}
+
+// 미션 성공
+function missionSuccess(recipe) {
+    clearMissionTimers();
+    const bonus = recipe.points * (MISSION_CONFIG.multiplier - 1); // 추가분만
+    G.score += bonus;  // 기본 점수는 interactWithServing에서 이미 추가됨
+    G.mission.active = false;
+
+    showToast(`⭐ 미션 성공! ${recipe.emoji} ${recipe.name} ×${MISSION_CONFIG.multiplier} (+${recipe.points * MISSION_CONFIG.multiplier}pt)`);
+    flashScreen('success');
+    hideMissionPanel();
+
+    // 다음 미션 예약
+    setTimeout(() => scheduleMission(), 500);
+}
+
+// 미션 실패
+function missionFail() {
+    clearMissionTimers();
+    if (!G.mission) return;
+    G.mission.active = false;
+
+    showToast('❌ 미션 실패! 다음 미션을 기다리세요');
+    flashScreen('fail');
+    hideMissionPanel();
+
+    setTimeout(() => scheduleMission(), 500);
+}
+
+function hideMissionPanel() {
+    const panel = document.getElementById('mission-panel');
+    panel.className = '';   // display:none
+    G.mission = null;
+}
+
+// 화면 플래시 효과
+function flashScreen(type) {
+    const el = document.getElementById('mission-flash');
+    el.className = type + ' show';
+    setTimeout(() => el.classList.remove('show'), 300);
+}
+
+// ═══════════════════════════════════════════════════════
+//  UI 구성
+// ═══════════════════════════════════════════════════════
+// 아이템 키에 맞는 <img> 또는 이모지 span을 반환
+function makeItemIcon(key, cls='') {
+    const src  = ITEM_IMAGE_PATHS[key];
+    const name = INGREDIENT_NAMES[key] || getItemInfo(key).name || key;
+    const emoji= INGREDIENT_EMOJI[key]  || getItemInfo(key).emoji || '?';
+    if (src) {
+        // 이미지 파일이 경로에 정의돼 있으면 <img> 사용
+        // (실제 파일이 없어도 onerror로 숨겨짐)
+        const img = document.createElement('img');
+        img.src = src; img.alt = name; img.className = 'ri-img' + (cls?' '+cls:'');
+        img.onerror = () => { img.style.display='none'; span.style.display='inline'; };
+        const span = document.createElement('span');
+        span.className = 'ri-emoji'; span.textContent = emoji; span.style.display='none';
+        const wrap = document.createElement('span');
+        wrap.style.display='inline-flex'; wrap.style.alignItems='center'; wrap.style.gap='2px';
+        wrap.appendChild(img); wrap.appendChild(span);
+        return wrap;
+    } else {
+        const span = document.createElement('span');
+        span.className = 'ri-emoji'; span.textContent = emoji;
+        return span;
+    }
+}
+
+function buildRecipeHints(stage) {
+    const neededResults = new Set(stage.orders);
+    const container = document.getElementById('recipe-hints');
+    container.innerHTML = '';
+
+    for (const r of RECIPES) {
+        if (!r.station || !r.results) continue;
+        if (!r.results.some(id => neededResults.has(id))) continue;
+
+        const tag = document.createElement('div');
+        tag.className = 'recipe-tag';
+
+        // ── 재료 ──
+        r.ingredients.forEach((ing, i) => {
+            if (i > 0) {
+                const plus = document.createElement('span');
+                plus.className = 'ri-arrow'; plus.textContent = '+';
+                tag.appendChild(plus);
+            }
+            tag.appendChild(makeItemIcon(ing));
+            const nm = document.createElement('span');
+            nm.className = 'ri-name';
+            nm.textContent = INGREDIENT_NAMES[ing] || ing;
+            tag.appendChild(nm);
+        });
+
+        // ── 화살표 + 스테이션 ──
+        const arr = document.createElement('span');
+        arr.className = 'ri-arrow'; arr.textContent = '→';
+        tag.appendChild(arr);
+
+        const st = document.createElement('span');
+        st.className = 'ri-station';
+        st.textContent = (r.station==='pot'?'실험테이블':'핫플레이트') + ` (${r.cookTime}초)`;
+        tag.appendChild(st);
+
+        // ── 화살표 + 결과물 ──
+        const arr2 = document.createElement('span');
+        arr2.className = 'ri-arrow'; arr2.textContent = '→';
+        tag.appendChild(arr2);
+
+        r.results.forEach((resId, i) => {
+            if (i > 0) {
+                const plus = document.createElement('span');
+                plus.className = 'ri-arrow'; plus.textContent = '+';
+                tag.appendChild(plus);
+            }
+            tag.appendChild(makeItemIcon(resId));
+            const rInfo = getItemInfo(resId);
+            const nm = document.createElement('span');
+            nm.className = 'ri-name';
+            nm.textContent = rInfo.name || resId;
+            tag.appendChild(nm);
+        });
+
+        // ── 점수 ──
+        const pts = document.createElement('span');
+        pts.className = 'ri-pts'; pts.textContent = `+${r.points}pt`;
+        tag.appendChild(pts);
+
+        container.appendChild(tag);
+    }
+}
+
+function buildOrderPanel() {
+    const panel = document.getElementById('order-panel');
+    panel.innerHTML = '';
+    for (const order of G.orders) {
+        const info = getItemInfo(order.id);
+        const card = document.createElement('div');
+        card.className = 'order-card' + (order.done?' completed':'');
+        card.id = 'order-card-' + order.index;
+        card.innerHTML = `<span class="order-emoji">${info.emoji}</span>
+            <span class="order-name">${info.name}</span>
+            <span class="order-pts">+${info.points}pt</span>`;
+        panel.appendChild(card);
+    }
+}
+
+// ═══════════════════════════════════════════════════════
+//  일시정지
+// ═══════════════════════════════════════════════════════
+function pauseGame() {
+    if (!G || G.gameOver || G.paused) return;
+    G.paused = true;
+    // 미션 타이머 멈춤
+    if (_missionTickTimer)     { clearInterval(_missionTickTimer);  _missionTickTimer = null; }
+    if (_missionScheduleTimer) { clearTimeout(_missionScheduleTimer); _missionScheduleTimer = null; }
+    // 조리 스테이션 타이머 스냅샷 저장 (일시정지 중 진행 방지)
+    G._pauseSnapshot = G.cookingStations.map(st => ({ cookTime: st.cookTime }));
+    document.getElementById('pause-overlay').classList.add('show');
+}
+
+function resumeGame() {
+    if (!G || G.gameOver || !G.paused) return;
+    G.paused = false;
+    // 조리 스테이션 타이머를 일시정지 직전 값으로 복원
+    if (G._pauseSnapshot) {
+        G.cookingStations.forEach((st, i) => {
+            if (G._pauseSnapshot[i]) st.cookTime = G._pauseSnapshot[i].cookTime;
+        });
+        G._pauseSnapshot = null;
+    }
+    // _lastTick 재보정 (일시정지 동안 흐른 실제 시간 제외)
+    G._lastTick = Date.now();
+    G.lastPotUpdate = Date.now();
+    // 미션 타이머 재개
+    if (G.mission && G.mission.active) {
+        _missionTickTimer = setInterval(() => {
+            if (!G.mission || !G.mission.active || G.gameOver) { clearInterval(_missionTickTimer); return; }
+            G.mission.timeLeft--;
+            updateMissionTimer();
+            if (G.mission.timeLeft <= 0) missionFail();
+        }, 1000);
+    }
+    document.getElementById('pause-overlay').classList.remove('show');
+    G.rafId = requestAnimationFrame(gameLoop);
+}
+
+// 탭/창 비활성화 감지
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) pauseGame(); else resumeGame();
+});
+window.addEventListener('blur',  pauseGame);
+window.addEventListener('focus', resumeGame);
+
+// ═══════════════════════════════════════════════════════
+//  게임 루프
+// ═══════════════════════════════════════════════════════
+function gameLoop() {
+    if (G.gameOver || G.paused) return;
+    const now = Date.now();
+
+    // 실제 경과 시간(ms)만큼 timeLeft 감소 — 포인트 보너스 시간 반영 가능
+    const dtSec = (now - G._lastTick) / 1000;
+    G._lastTick = now;
+    G.timeLeft = Math.max(0, G.timeLeft - dtSec);
+
+    const dtPot = (now - G.lastPotUpdate) / 1000;
+    if (dtPot >= 0.5) { updateCookingStations(dtPot); G.lastPotUpdate = now; }
+
+    processInput(now);
+
+    document.getElementById('score-value').textContent   = G.score;
+    document.getElementById('time-value').textContent    = Math.ceil(G.timeLeft);
+    document.getElementById('holding-display').textContent =
+        G.player.holding
+            ? (INGREDIENT_EMOJI[G.player.holding] || getItemInfo(G.player.holding).emoji || '?')
+              + ' ' + (INGREDIENT_NAMES[G.player.holding] || getItemInfo(G.player.holding).name || G.player.holding)
+            : '—';
+    if (G.timeLeft <= 10) document.getElementById('time-value').classList.add('urgent');
+
+    draw();
+
+    if (G.timeLeft <= 0) { G.gameOver=true; stopGame(); onGameOver(); return; }
+    G.rafId = requestAnimationFrame(gameLoop);
+}
+
+// ═══════════════════════════════════════════════════════
+//  조리 스테이션 업데이트
+// ═══════════════════════════════════════════════════════
+function updateCookingStations(dt) {
+    for (const st of G.cookingStations) {
+        if (st.cooking && !st.done) {
+            const recipe = findRecipeForStation(st);
+            if (!recipe) { st.cooking=false; continue; }
+            st.cookTime += dt;
+            if (st.cookTime >= recipe.cookTime) {
+                st.done = true;
+                st.cooking = false;
+                st.outputQueue = [...recipe.results];  // 결과물 큐에 쌓기
+            }
+        }
+    }
+}
+
+function findRecipeForStation(st) {
+    const contents = [...st.contents].sort();
+    for (const r of RECIPES) {
+        if (!r.station || r.station !== st.type || r.cookTime === 0) continue;
+        if (JSON.stringify([...r.ingredients].sort()) === JSON.stringify(contents)) return r;
+    }
+    return null;
+}
+
+// 스테이션 슬롯 최대 개수 (레시피 재료 중 최대)
+function maxSlotsForStation(stType) {
+    return Math.max(...RECIPES.filter(r => r.station === stType && r.cookTime > 0)
+        .map(r => r.ingredients.length), 1);
+}
+
+// ═══════════════════════════════════════════════════════
+//  입력 처리
+// ═══════════════════════════════════════════════════════
+function onKeyDown(e) {
+    G.keys[e.key]=true; G.keys[e.code]=true;
+    if ([37,38,39,40,32].includes(e.keyCode)) e.preventDefault();
+}
+function onKeyUp(e) { G.keys[e.key]=false; G.keys[e.code]=false; }
+
+function processInput(now) {
+    let dx=0, dy=0;
+
+    // ── 방향 감지 (이동 딜레이와 무관하게 항상 dir 갱신) ──
+    if      (G.keys['ArrowUp']   ||G.keys['w']||G.keys['W']) { dx= 0; dy=-1; }
+    else if (G.keys['ArrowDown'] ||G.keys['s']||G.keys['S']) { dx= 0; dy= 1; }
+    else if (G.keys['ArrowLeft'] ||G.keys['a']||G.keys['A']) { dx=-1; dy= 0; }
+    else if (G.keys['ArrowRight']||G.keys['d']||G.keys['D']) { dx= 1; dy= 0; }
+
+    // 조이스틱 방향 (키보드 없을 때)
+    if (dx===0 && dy===0 && G.joystick && (G.joystick.dx!==0 || G.joystick.dy!==0)) {
+        dx = G.joystick.dx; dy = G.joystick.dy;
+    }
+
+    // 방향이 있으면 항상 dir 즉시 갱신 (이동 딜레이와 무관)
+    if (dx!==0 || dy!==0) {
+        G.player.dir = {x:dx, y:dy};
+    }
+
+    // ── 이동 (딜레이 적용) ──
+    if (now - G.lastMove >= G.MOVE_DELAY) {
+        if (dx!==0 || dy!==0) {
+            const nx = G.player.pos.x + dx;
+            const ny = G.player.pos.y + dy;
+            if (!isBlocking(nx, ny)) { G.player.pos.x=nx; G.player.pos.y=ny; }
+            G.lastMove = now;
+        }
+
+        // ── 상호작용 (Space / 조이스틱 버튼) ──
+        if (G.keys[' ']||G.keys['Space']) {
+            interact();
+            G.keys[' ']=false; G.keys['Space']=false;
+            G.lastMove = now;
+        }
+    }
+}
+
+function isBlocking(x,y) {
+    if (y<0||y>=G.ROWS||x<0||x>=G.COLS) return true;
+    return G.terrain[y][x] !== ' ';
+}
+
+// ═══════════════════════════════════════════════════════
+//  상호작용
+// ═══════════════════════════════════════════════════════
+function interact() {
+    const {x,y} = G.player.pos;
+    const tx = x + G.player.dir.x;
+    const ty = y + G.player.dir.y;
+    if (ty<0||ty>=G.ROWS||tx<0||tx>=G.COLS) return;
+
+    const tile = G.terrain[ty][tx];
+    const key  = `${tx},${ty}`;
+
+    if (INGREDIENT_SOURCES[tile]) {
+        if (!G.player.holding) G.player.holding = INGREDIENT_SOURCES[tile];
+        return;
+    }
+    if (tile==='D') { if (!G.player.holding) G.player.holding='dish'; return; }
+    if (tile==='Z') {
+        if (G.player.holding) { showToast(`🗑️ ${INGREDIENT_EMOJI[G.player.holding]||G.player.holding} 버렸습니다`); G.player.holding=null; }
+        return;
+    }
+
+    const station = G.cookingStations.find(s=>s.x===tx&&s.y===ty);
+    if (station) { interactWithStation(station); return; }
+    if (tile==='S') { interactWithServing(); return; }
+    if (tile==='X') { interactWithCounter(key); return; }
+}
+
+function interactWithStation(station) {
+    const h = G.player.holding;
+
+    // ① 완성된 상태 → 접시로 결과물 하나씩 꺼내기
+    if (station.done && station.outputQueue.length > 0 && h === 'dish') {
+        G.player.holding = station.outputQueue.shift();
+        // 큐가 비면 스테이션 초기화
+        if (station.outputQueue.length === 0) {
+            Object.assign(station, {contents:[], done:false, cooking:false, cookTime:0, outputQueue:[]});
+        }
+        return;
+    }
+
+    // ② 재료 넣기
+    if (h && h !== 'dish' && !station.done && !station.cooking) {
+        const maxIngr = maxSlotsForStation(station.type);
+        if (station.contents.length >= maxIngr) return;
+        station.contents.push(h);
+        G.player.holding = null;
+        if (findRecipeForStation(station)) station.cooking = true;
+        return;
+    }
+
+    // ③ 분자 중이 아니고 재료만 있으면 꺼내기
+    if (!h && station.contents.length > 0 && !station.cooking && !station.done) {
+        G.player.holding = station.contents.pop();
+    }
+}
+
+function interactWithCounter(key) {
+    const h = G.player.holding;
+    const existing = G.counterItems[key];
+    if (h) {
+        if (!existing) { G.counterItems[key]=h; G.player.holding=null; }
+        else {
+            const combined = tryCounterCombine(existing, h);
+            if (combined) { G.counterItems[key]=combined; G.player.holding=null; showToast(`✨ ${combined} 완성!`); }
+            else { G.counterItems[key]=h; G.player.holding=existing; }
+        }
+    } else {
+        if (existing) { G.player.holding=existing; delete G.counterItems[key]; }
+    }
+}
+
+function tryCounterCombine(a, b) {
+    for (const r of RECIPES) {
+        if (r.station!=='counter' || r.ingredients.length!==2) continue;
+        const has = [a,b].sort();
+        if (JSON.stringify([...r.ingredients].sort())===JSON.stringify(has)) return r.id;
+    }
+    return null;
+}
+
+// 아이템 ID → 표시용 정보
+function getItemInfo(id) {
+    const r = RECIPES.find(r => r.id === id);
+    if (r) return { name: r.name, emoji: r.emoji, points: r.points };
+    // pan_combo 같은 복합 레시피 직접 제출은 없으므로 단품만 커버
+    return { name: id, emoji: '🍽️', points: 0 };
+}
+
+function interactWithServing() {
+    const h = G.player.holding;
+    if (!h) return;
+    if (!SERVABLE_IDS.has(h)) { showToast('❌ 제출할 수 없는 아이템이에요!'); return; }
+
+    const info  = getItemInfo(h);
+    const order = G.orders.find(o => o.id === h && !o.done);
+    if (order) {
+        order.done = true;
+        G.player.holding = null;
+
+        // ── 미션 성공 체크 ──
+        const isMission = G.mission && G.mission.active && G.mission.recipeId === h;
+        let earnedPts = info.points;
+        if (isMission) {
+            G.score += earnedPts;
+            missionSuccess({ ...info, id: h });
+            earnedPts *= MISSION_CONFIG.multiplier; // 보너스 포함 시간 계산용
+        } else {
+            G.score += earnedPts;
+        }
+
+        // ── 포인트 1/5만큼 남은 시간 증가 ──
+        const timeBonus = Math.round(earnedPts / 5);
+        if (timeBonus > 0) {
+            G.timeLeft += timeBonus;
+            if (!isMission) showToast(`🎉 ${info.emoji} ${info.name} 제출! +${earnedPts}pt ⏱+${timeBonus}초`);
+        } else {
+            if (!isMission) showToast(`🎉 ${info.emoji} ${info.name} 제출! +${earnedPts}pt`);
+        }
+
+        const card = document.getElementById('order-card-' + order.index);
+        if (card) card.classList.add('completed');
+
+        // ── 모든 실험 완료 시 → 게임 종료 대신 새 실험 목록 추가 ──
+        if (G.orders.every(o => o.done)) {
+            addNextWave();
+        }
+    } else {
+        showToast('❌ 미션에 없는 분자입니다!');
+        G.player.holding = null;
+    }
+}
+
+// ── 모든 실험 완료 후 새 실험 목록 추가 (시간 남으면 계속) ──
+function addNextWave() {
+    G.waveCount = (G.waveCount || 1) + 1;
+    // 스테이지 실험 목록을 섞어서 새로 추가
+    const pool = [...G.stage.orders];
+    // 셔플
+    for (let i = pool.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    const startIdx = G.orders.length;
+    const newOrders = pool.map((id, i) => ({ id, index: startIdx + i, done: false }));
+    G.orders.push(...newOrders);
+
+    showToast(`🔬 실험 ${G.waveCount}라운드 시작!`);
+    buildOrderPanel();   // 패널 새로 렌더
+}
+
+// ═══════════════════════════════════════════════════════
+//  그리기
+// ═══════════════════════════════════════════════════════
+function draw() {
+    const canvas = document.getElementById('game-canvas');
+    const ctx = canvas.getContext('2d');
+    const T = G.TILE;
+
+    ctx.fillStyle='#222';
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    // ── 타일 ──
+    for (let r=0;r<G.ROWS;r++) for (let c=0;c<G.COLS;c++) {
+        const tile = G.terrain[r][c];
+        const tx = c*T, ty = r*T;
+
+        // 바닥/벽 오브젝트 이미지 우선, 없으면 색상 fallback
+        const objKey = tile === ' ' ? 'obj_floor' : 'obj_wall';
+        if (IMG_CACHE[objKey]) {
+            ctx.drawImage(IMG_CACHE[objKey], tx, ty, T, T);
+        } else {
+            ctx.fillStyle = TILE_COLORS[tile]||'#888';
+            ctx.fillRect(tx+1, ty+1, T-2, T-2);
+            if (tile!==' ') { ctx.strokeStyle='rgba(0,0,0,0.25)'; ctx.lineWidth=1; ctx.strokeRect(tx+1,ty+1,T-2,T-2); }
+        }
+
+        // 특수 타일: 제출(S), 쓰레기통(Z)
+        if (tile === 'S') {
+            if (IMG_CACHE['obj_serving']) ctx.drawImage(IMG_CACHE['obj_serving'], tx, ty, T, T);
+            else { ctx.font=`${T*0.4}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🍽️', tx+T/2, ty+T/2); }
+        } else if (tile === 'Z') {
+            if (IMG_CACHE['obj_trash']) ctx.drawImage(IMG_CACHE['obj_trash'], tx, ty, T, T);
+            else { ctx.font=`${T*0.4}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('🗑️', tx+T/2, ty+T/2); }
+        }
+
+        // 재료 공급 타일 (O,T,M,B,D): 이미지 or 이모지
+        const ingKey = {'O':'onion','T':'tomato','M':'mushroom','B':'bread','D':'dish'}[tile];
+        if (ingKey) {
+            if (IMG_CACHE[ingKey]) {
+                // 타일 전체를 꽉 채우는 크기 (여백 4px)
+                const iSize = T - 4;
+                ctx.drawImage(IMG_CACHE[ingKey], tx+2, ty+2, iSize, iSize);
+            } else {
+                const emojiMap = {O:'수소',T:'산소',M:'질소',B:'메테인',D:'실험기구'};
+                ctx.font=`${T*0.72}px sans-serif`; ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.fillText(emojiMap[tile]||'', tx+T/2, ty+T/2);
+            }
+        }
+    }
+
+    // 조리 스테이션
+    for (const st of G.cookingStations) {
+        const x=st.x*T, y=st.y*T;
+        const stKey = st.type; // 'pot' or 'pan'
+        // 스테이션 기본 아이콘: 타일의 1.5배 크기 (중앙 기준으로 넘침)
+        const stImgSize = Math.round(T * 1.5) - 4;
+
+        if (st.done && st.outputQueue.length > 0) {
+            // ① 완성 → 스테이션 배경(1.5배) + 결과물 아이콘 오버레이
+            drawItemIcon(ctx, stKey, x+T/2, y+T/2, stImgSize);
+            // 결과물 오버레이 (우하단, 타일 기준)
+            drawItemIcon(ctx, st.outputQueue[0], x+T*0.75, y+T*0.75, T*0.55);
+            // 남은 개수 뱃지
+            if (st.outputQueue.length > 1) {
+                ctx.fillStyle='#f0a500'; ctx.font=`bold ${T*0.22}px sans-serif`;
+                ctx.textAlign='right'; ctx.textBaseline='top';
+                ctx.fillText('×'+st.outputQueue.length, x+T-4, y+4);
+            }
+        } else if (st.cooking) {
+            // ② 조리 중 → 스테이션 아이콘 크게 + 재료 미니 오버레이
+            drawItemIcon(ctx, stKey, x+T/2, y+T/2, stImgSize);
+            const items = st.contents;
+            const miniSize = T * 0.24;
+            const totalW = items.length * (miniSize + 2);
+            items.forEach((ing, i) => {
+                const ix = x + T/2 - totalW/2 + i*(miniSize+2) + miniSize/2;
+                drawItemIcon(ctx, ing, ix, y+T*0.78, miniSize);
+            });
+            // 진행 바
+            const r = findRecipeForStation(st);
+            const pct = r ? Math.min(1, st.cookTime/r.cookTime) : 0;
+            ctx.fillStyle='#2ecc71'; ctx.fillRect(x+4, y+T-8, (T-8)*pct, 5);
+            ctx.strokeStyle='rgba(255,255,255,0.3)'; ctx.lineWidth=1;
+            ctx.strokeRect(x+4, y+T-8, T-8, 5);
+        } else {
+            // ③ 빈 or 재료 투입 대기
+            drawItemIcon(ctx, stKey, x+T/2, y+T/2, stImgSize);
+            const items = st.contents;
+            const miniSize = T * 0.24;
+            const totalW = items.length * (miniSize + 2);
+            items.forEach((ing, i) => {
+                const ix = x + T/2 - totalW/2 + i*(miniSize+2) + miniSize/2;
+                drawItemIcon(ctx, ing, ix, y+T*0.78, miniSize);
+            });
+            // 슬롯 수
+            const maxS = maxSlotsForStation(st.type);
+            ctx.fillStyle='rgba(255,255,255,0.35)'; ctx.font=`${T*0.17}px sans-serif`;
+            ctx.textAlign='center'; ctx.textBaseline='bottom';
+            ctx.fillText(`${items.length}/${maxS}`, x+T/2, y+T-2);
+        }
+    }
+
+    // 카운터 위 아이템
+    for (const [key,item] of Object.entries(G.counterItems)) {
+        const [cx,cy] = key.split(',').map(Number);
+        ctx.fillStyle='rgba(255,255,255,0.12)';
+        ctx.fillRect(cx*T+8,cy*T+8,T-16,T-16);
+        drawItemIcon(ctx, item, cx*T+T/2, cy*T+T/2, T*0.46);
+    }
+
+    // ── 플레이어 ──
+    const px = G.player.pos.x*T + T/2;
+    const py = G.player.pos.y*T + T/2;
+
+    // 그림자
+    ctx.fillStyle='rgba(0,0,0,0.2)';
+    ctx.beginPath(); ctx.ellipse(px, py+T*0.3, T*0.28, T*0.1, 0, 0, Math.PI*2); ctx.fill();
+
+    // 방향 키 결정
+    const dirKey = G.player.dir.y < 0 ? 'up'
+                 : G.player.dir.y > 0 ? 'down'
+                 : G.player.dir.x < 0 ? 'left' : 'right';
+
+    // 아이템 들고 있을 때 → holding_방향 이미지 우선, 없으면 빈손 이미지, 없으면 fallback
+    const holdingKey = G.player.holding ? 'char_holding_'+dirKey : null;
+    const charImg = (holdingKey && IMG_CACHE[holdingKey])
+                  ? IMG_CACHE[holdingKey]
+                  : IMG_CACHE['char_'+dirKey];
+
+    if (charImg) {
+        // 이미지 캐릭터: 크기를 20% 줄이고 위치를 위로 20% 이동
+        const cSize = T * 1.6;
+        const cY = py - T * 0.2;
+        ctx.drawImage(charImg, px - cSize/2, cY - cSize/2, cSize, cSize);
+    } else {
+        // fallback: 기존 원형 캐릭터
+        const cY = py - T * 0.2;
+        ctx.fillStyle='#2ecc71';
+        ctx.beginPath(); ctx.arc(px, cY, T * 0.48, 0, Math.PI*2); ctx.fill();
+        ctx.strokeStyle='#27ae60'; ctx.lineWidth=2; ctx.stroke();
+        ctx.fillStyle='#fff';
+        ctx.beginPath(); ctx.arc(px+G.player.dir.x*T*0.16, cY+G.player.dir.y*T*0.16, T*0.08, 0, Math.PI*2); ctx.fill();
+    }
+
+    // 들고 있는 아이템 (머리 위, 2배 크기)
+    if (G.player.holding) {
+        drawItemIcon(ctx, G.player.holding, px, py - T*0.72, T*0.76);
+    }
+}
+
+// ═══════════════════════════════════════════════════════
+//  게임 오버
+// ═══════════════════════════════════════════════════════
+function onGameOver(allCleared=false) {
+    const prog = loadProgress();
+    const cleared = allCleared || G.score>0;
+    if (cleared && !prog.cleared.includes(G.stage.id)) prog.cleared.push(G.stage.id);
+    prog.totalScore = (prog.totalScore||0) + G.score;
+    saveProgress(prog);
+
+    const remaining = STAGES.filter(s=>!prog.cleared.includes(s.id));
+    document.getElementById('go-title').textContent       = allCleared?'🎊 모든 실험 완료!':'⏱ 시간 종료!';
+    document.getElementById('final-score').textContent    = G.score+' 점';
+    document.getElementById('cleared-stages-msg').textContent =
+        cleared ? `✅ 스테이지 클리어! (누적 ${prog.totalScore}점)` : `이번엔 아쉽네요. (누적 ${prog.totalScore}점)`;
+    document.getElementById('btn-next').style.display = remaining.length>0?'inline-block':'none';
+    document.getElementById('game-over-overlay').classList.add('show');
+}
+
+// ═══════════════════════════════════════════════════════
+//  화면 전환
+// ═══════════════════════════════════════════════════════
+function nextStage()   { document.getElementById('game-over-overlay').classList.remove('show'); goToMenu(); }
+function replayStage() { document.getElementById('game-over-overlay').classList.remove('show'); startGame(G.stage.id); }
+function goToMenu() {
+    stopGame();
+    document.getElementById('game-screen').style.display  = 'none';
+    document.getElementById('start-screen').style.display = 'block';
+    document.getElementById('game-over-overlay').classList.remove('show');
+    document.getElementById('touch-controls').style.display = 'none';
+    document.getElementById('mission-panel').className = '';
+    buildStartScreen();
+}
+
+// ═══════════════════════════════════════════════════════
+//  토스트 알림
+// ═══════════════════════════════════════════════════════
+let _toastTimer = null;
+function showToast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg; el.classList.add('show');
+    if (_toastTimer) clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(()=>el.classList.remove('show'), 1800);
+}
+</script>
+</body>
+</html>
